@@ -4,23 +4,29 @@ import com.gargoylesoftware.htmlunit.BrowserVersion;
 import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.html.*;
+import com.gargoylesoftware.htmlunit.javascript.host.html.HTMLTableCellElement;
+import com.gargoylesoftware.htmlunit.javascript.host.html.HTMLTableDataCellElement;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ClientGM extends WebClient {
     private final String identifant;
     private final String motDePasse;
     private final String ville;
     private URL urldeConnexion;
+	private URL jourSuivant;
+	private URL jourPrecedent;
 
     ClientGM(String login, String mdp, String ville){
         super(BrowserVersion.BEST_SUPPORTED);
         this.identifant = login;
         this.motDePasse = mdp;
-        this.ville = ville;
-
+        this.ville = ville; 
+		try {this.jourSuivant = new URL("https://gmet.escapetime-world.fr/repartition.php?jour_change=suivant"); } catch (Exception e) { System.out.println("c la merde"); System.exit(0); }
         try {this.urldeConnexion = new URL("https://gmet.escapetime-world.fr/index.php?auth=" + ville); } catch (Exception e) { System.out.println("c la merde"); System.exit(0); }
         //this.getCookieManager().setCookiesEnabled(true);
         //this.getOptions().setJavaScriptEnabled(true);
@@ -81,11 +87,24 @@ public class ClientGM extends WebClient {
         return true;
     }
 
-    public String getNomSalle(String url) {
+    public ArrayList<String> getNomSalle(String url) {
         try {
 			//All this method does is return the HTML response for some URL.
 			//We'll call this after we log in!
-			return this.getPage(url).getWebResponse().getContentAsString();
+			ArrayList<String> nomSalle = new ArrayList<String>();
+			HtmlPage page = this.getPage(url);
+			List<HtmlElement> divs = page.getByXPath("/html/body/center/div[1]/table[1]/tbody/tr[1]/td");
+			for (HtmlElement cell: divs){
+				if(!cell.getTextContent().contains("Heure") && !cell.getTextContent().contains("Accueil"))
+				nomSalle.add(cell.getTextContent());
+			}
+			divs = page.getByXPath("/html/body/center/div[1]/table[2]/tbody/tr[1]/td[2]");
+			for (HtmlElement cell: divs){
+				if(!cell.getTextContent().contains("Heure") && !cell.getTextContent().contains("Accueil"))
+				nomSalle.add(cell.getTextContent());
+			}
+			
+			return nomSalle;
 		} catch (FailingHttpStatusCodeException e) {
 			e.printStackTrace();
 		} catch (MalformedURLException e) {

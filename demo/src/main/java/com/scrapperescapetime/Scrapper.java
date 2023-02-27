@@ -1,13 +1,9 @@
 package com.scrapperescapetime;
 
-import com.gargoylesoftware.htmlunit.WebClient;
-import com.gargoylesoftware.htmlunit.WebWindow;
-import com.gargoylesoftware.htmlunit.html.HtmlPage;
-
-import java.net.URL;
+import java.util.ArrayList;
 
 public class Scrapper {
-    private ClientGM leNavigateur;
+    public ClientGM leNavigateur;
 
     public Scrapper(String id, String mdp, String ville) {
         this.leNavigateur = new ClientGM(id, mdp, ville);
@@ -15,12 +11,14 @@ public class Scrapper {
 
     public static void main(String[] args) {
         
+        RecupererIdentifiant allan = new RecupererIdentifiant();
 
-        Scrapper leScrapper = new Scrapper("lo", "lo", "lemans");
+        Scrapper leScrapper = new Scrapper(allan.getId(), allan.getMdp(), "lemans");
         leScrapper.leNavigateur.connecter();
 
-        String fesse = leScrapper.leNavigateur.getNomSalle("https://gmet.escapetime-world.fr/repartition.php");
+        ArrayList<String> fesse = leScrapper.leNavigateur.getNomSalle("https://gmet.escapetime-world.fr/repartition.php");
         System.out.println(fesse);
+
 
     }
 }
