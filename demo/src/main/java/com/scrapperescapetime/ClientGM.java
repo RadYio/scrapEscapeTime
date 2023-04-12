@@ -11,21 +11,29 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import com.google.gson.*;
 
 public class ClientGM extends WebClient {
     private final String identifant;
     private final String motDePasse;
     private final String ville;
+	private URL jourActuel;
     private URL urldeConnexion;
 	private URL jourSuivant;
 	private URL jourPrecedent;
+	private String url = "https://gmet.escapetime-world.fr/repartition.php";
 
     ClientGM(String login, String mdp, String ville){
         super(BrowserVersion.BEST_SUPPORTED);
         this.identifant = login;
         this.motDePasse = mdp;
         this.ville = ville; 
+		try {this.jourPrecedent = new URL("https://gmet.escapetime-world.fr/repartition.php?jour_change=precedent"); } catch (Exception e) { System.out.println("c la merde"); System.exit(0); }
+		try {this.jourActuel = new URL("https://gmet.escapetime-world.fr/repartition.php?jour_change=actu"); } catch (Exception e) { System.out.println("c la merde"); System.exit(0);}
 		try {this.jourSuivant = new URL("https://gmet.escapetime-world.fr/repartition.php?jour_change=suivant"); } catch (Exception e) { System.out.println("c la merde"); System.exit(0); }
         try {this.urldeConnexion = new URL("https://gmet.escapetime-world.fr/index.php?auth=" + ville); } catch (Exception e) { System.out.println("c la merde"); System.exit(0); }
         //this.getCookieManager().setCookiesEnabled(true);
@@ -42,6 +50,27 @@ public class ClientGM extends WebClient {
     public String getVille() {
         return ville;
     }
+
+	private void changerJourSecret(URL choix){
+		try {
+			this.getPage(choix);
+		} catch (Exception e) {
+			System.out.println("c la merde");
+			System.exit(0);
+		}
+		System.out.println("Changement de jour");
+	}
+	public void changerJourSuivant() {
+		changerJourSecret(this.jourSuivant);
+	}
+
+	public void changerJourPrecedent() {
+		changerJourSecret(this.jourPrecedent);
+	}
+
+	public void changerJourActuel(){
+		changerJourSecret(this.jourActuel);
+	}
 
     public Boolean connecter() {
         System.out.println("Connexion au site de " + this.ville + "\n");
@@ -87,12 +116,12 @@ public class ClientGM extends WebClient {
         return true;
     }
 
-    public ArrayList<String> getNomSalle(String url) {
+    public ArrayList<String> getNomSalle() {
         try {
 			//All this method does is return the HTML response for some URL.
 			//We'll call this after we log in!
 			ArrayList<String> nomSalle = new ArrayList<String>();
-			HtmlPage page = this.getPage(url);
+			HtmlPage page = this.getPage(this.url);
 			List<HtmlElement> divs = page.getByXPath("/html/body/center/div[1]/table[1]/tbody/tr[1]/td");
 			for (HtmlElement cell: divs){
 				if(!cell.getTextContent().contains("Heure") && !cell.getTextContent().contains("Accueil"))
@@ -114,4 +143,73 @@ public class ClientGM extends WebClient {
 		}
 		return null;
     }
+
+	public Map<String, String> getClientParSalle(Salle choix){
+		
+		Integer salle = choix.getVal() * 2 + 2;
+
+		try {
+			//All this method does is return the HTML response for some URL.
+			//We'll call this after we log in!
+			Map<String, String> clientParSalle = new HashMap<>();
+			HtmlPage page = this.getPage(this.url);
+			for(int i=2; i < 10; i++){
+				//String t = page.getFirstByXPath("/html/body/center/div[1]/table[1]/tbody/tr["+i+"]/td[4]");
+				List<HtmlElement> clients = page.getByXPath("/html/body/center/div[1]/table[1]/tbody/tr["+i+"]/td["+salle+"]");
+				List<HtmlElement> heures = page.getByXPath("/html/body/center/div[1]/table[1]/tbody/tr["+i+"]/td[1]");
+				for (int j=0; j < clients.size(); j++){
+					if(!clients.get(j).getTextContent().isEmpty())
+						clientParSalle.put(heures.get(j).getTextContent(), clients.get(j).getTextContent());
+				}
+			}
+			return clientParSalle;
+		} catch (FailingHttpStatusCodeException e) {
+			e.printStackTrace();
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+
+
+	public JsonObject getClientParSalle(Salle choix, Integer nbJour){
+		Integer salle = choix.getVal() * 2 + 2;
+		String nomSalle = choix.getNom();
+		JsonObject result = new JsonObject();
+		try {
+			changerJourActuel();
+			for(int jour = 0; jour<nbJour; jour++){
+				JsonObject jourObj = new JsonObject();
+				HtmlPage page = this.getPage(this.url);
+				for(int i=2; i < 10; i++){
+					List<HtmlElement> clients = page.getByXPath("/html/body/center/div[1]/table[1]/tbody/tr["+i+"]/td["+salle+"]");
+					List<HtmlElement> gm = page.getByXPath("/html/body/center/div[1]/table[1]/tbody/tr["+i+"]/td["+(salle-1)+"]");
+					List<HtmlElement> heures = page.getByXPath("/html/body/center/div[1]/table[1]/tbody/tr["+i+"]/td[1]");
+					for (int j=0; j < clients.size(); j++){
+						if(!clients.get(j).getTextContent().isEmpty()) {
+							JsonObject clientObj = new JsonObject();
+							clientObj.addProperty("gm", gm.get(j).getTextContent());
+							clientObj.addProperty("client", clients.get(j).getTextContent());
+							jourObj.add(heures.get(j).getTextContent(), clientObj);
+						}
+					}
+				}
+				result.add("jour"+(jour+1), jourObj);
+				changerJourSuivant();
+			}
+
+			return result;
+		} catch (FailingHttpStatusCodeException e) {
+			e.printStackTrace();
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
 }

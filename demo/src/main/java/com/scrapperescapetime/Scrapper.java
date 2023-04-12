@@ -1,6 +1,9 @@
 package com.scrapperescapetime;
 
-import java.util.ArrayList;
+
+
+
+import com.google.gson.*;
 
 public class Scrapper {
     public ClientGM leNavigateur;
@@ -16,8 +19,13 @@ public class Scrapper {
         Scrapper leScrapper = new Scrapper(allan.getId(), allan.getMdp(), "lemans");
         leScrapper.leNavigateur.connecter();
 
-        ArrayList<String> fesse = leScrapper.leNavigateur.getNomSalle("https://gmet.escapetime-world.fr/repartition.php");
-        System.out.println(fesse);
+        JsonObject salles = new JsonObject();
+        for(Salle s: Salle.values()){
+            JsonObject sTemp = leScrapper.leNavigateur.getClientParSalle(s, 4);
+            salles.add(s.getNom(), sTemp);
+        }
+        String salleFinal = new GsonBuilder().setPrettyPrinting().create().toJson(salles);
+        System.out.println(salleFinal);
 
 
     }
